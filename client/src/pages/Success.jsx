@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import {useNavigate, useSearchParams} from "react-router-dom";
 
 export default function SuccessPage() {
     const navigate = useNavigate();
@@ -7,7 +7,7 @@ export default function SuccessPage() {
     const [paymentData, setPaymentData] = useState(null);
     const calledRef = useRef(false); // <StrictMode> 로 인한 중복 호출 방지
 
-     const API_BASE = import.meta.env.VITE_API_BASE_URL;
+    const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
     useEffect(() => {
         if (calledRef.current) return;
@@ -36,8 +36,12 @@ export default function SuccessPage() {
             try {
                 const res = await fetch(`${API_BASE}/api/payments/confirm`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ paymentKey, reservationId, amount: Number(amount) }),
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        paymentKey,
+                        orderId: reservationId,           // 서버가 기대하는 키 이름으로 매핑
+                        amount: Number(amount)            // 서버가 기대하는 금액 키 이름으로 전달
+                    }),
                 });
 
                 console.log("📌 [프론트] 결제 승인 API 응답 상태", res.status);
@@ -45,11 +49,24 @@ export default function SuccessPage() {
                 console.log("📌 [프론트] 결제 승인 API 응답 데이터", json);
                 // 백엔드에서 code로 성공/실패 구분
                 if (json.code !== "SUCCESS") {
-                    throw { code: json.code, message: json.message };
+                    throw {code: json.code, message: json.message};
                 }
 
-                // 성공 시 결제 데이터만 저장
-                setPaymentData(json.data);
+                // json.data 가 존재하는 정상 응답 가정
+                const d = json.data || {};
+
+                // 정규화: reservationId 우선. legacy orderId도 처리
+                const normalized = {
+                    reservationId: d.reservationId ?? d.orderId ?? null,
+                    totalAmount: d.totalAmount ?? d.amount ?? null,
+                    raw: d
+                };
+
+                if (!normalized.reservationId || !Number.isFinite(normalized.totalAmount)) {
+                    throw {code: "INVALID_RESPONSE", message: "백엔드 응답 형식 오류"};
+                }
+
+                setPaymentData(normalized);
 
             } catch (err) {
                 console.error("❌ [프론트] 결제 승인 실패", err);
@@ -61,13 +78,12 @@ export default function SuccessPage() {
     }, [searchParams, API_BASE, navigate]);
 
     return (
-        <div className="box_section" style={{ width: "600px" }}>
+        <div className="box_section" style={{width: "600px"}}>
             {paymentData ? (
                 <>
                     <h2>결제가 완료되었습니다 🎉</h2>
-                    <p>주문 번호: {paymentData.reservationId}</p>
-                    <p>결제 금액: {paymentData.totalAmount}원</p>
-                    <p>결제 수단: {paymentData.method}</p>
+                    <p>주문 번호: {paymentData.reservationId ?? paymentData.orderId}</p>
+                    <p>결제 금액: {Number(paymentData.totalAmount).toLocaleString()}원</p>
                 </>
             ) : (
                 <p>승인 요청 중...</p>
