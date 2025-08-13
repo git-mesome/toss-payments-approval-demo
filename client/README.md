@@ -5,15 +5,15 @@
 ## 환경 변수 설정
 
 ```bash
-cp .env.example .env
+cp .env
 # 각 키 값을 실제 테스트 키로 변경
 ```
 
 ## 실행
 
 ```bash
-npm i
-npm run dev
+pnpm i
+pnpm dev
 ```
 
 브라우저에서 [http://localhost:5173](http://localhost:5173)를 열어 테스트합니다.

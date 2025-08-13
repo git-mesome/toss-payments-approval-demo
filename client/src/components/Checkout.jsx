@@ -1,42 +1,139 @@
-// 결제 버튼을 제공하고 Toss 위젯을 호출하는 컴포넌트
-import { useState } from 'react';
-import { loadWidget } from '../lib/toss';
+import {loadTossPayments, ANONYMOUS} from "@tosspayments/tosspayments-sdk";
+import {useEffect, useState} from "react";
 
-export default function Checkout() {
-  const [loading, setLoading] = useState(false);
+// 토스페이먼츠 SDK를 초기화할 때 필요한 클라이언트 키를 환경 변수에서 읽는다
+// 개발 환경에서는 VITE_TOSS_CLIENT_KEY를 .env 파일에 정의한다
+// @docs https://docs.tosspayments.com/sdk/v2/js#토스페이먼츠-초기화
+const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
 
-  const handlePay = async () => {
-    setLoading(true);
-    // 1) 주문번호와 금액을 준비한다.
-    const orderId = crypto.randomUUID();
-    const amount = 1500; // 테스트용 금액
+// 구매자 식별에 사용할 customerKey를 준비한다
+// 실제 서비스에서는 서버가 로그인 사용자의 고유 식별자 UUID를 내려준다
+// 비회원 결제는 ANONYMOUS를 사용한다
+// @docs https://docs.tosspayments.com/sdk/v2/js#tosspaymentswidgets
+// TODO : 실제 서비스에서는 로그인 사용자 식별자로 서버가 내려준 UUID 값을 customerKey에 설정합니다.
+const customerKey = generateRandomString();
 
-    // 2) Toss 결제 위젯을 로드하고 결제창을 띄운다.
-    const tossPayments = await loadWidget();
-    const paymentWidget = tossPayments.widgets({ customerKey: 'anonymous' });
-    paymentWidget.renderPaymentMethods('#payment-method', { value: amount });
-    paymentWidget.renderAgreement('#agreement');
+export default function CheckoutPage() {
 
-    // 3) 결제를 요청하면 Toss가 successUrl 또는 failUrl로 이동시킨다.
-    await paymentWidget.requestPayment({
-      orderId,
-      amount,
-      orderName: '테스트 주문',
-      successUrl: `${window.location.origin}/success`,
-      failUrl: `${window.location.origin}/fail`,
+    // 결제 금액 정보
+    const [amount, setAmount] = useState({
+        currency: "KRW",
+        value: 50000,
     });
-    setLoading(false);
-  };
 
-  return (
-    <div>
-      <h1>Toss Payments 예제</h1>
-      {/* 결제수단과 약관이 렌더링될 영역 */}
-      <div id="payment-method" />
-      <div id="agreement" />
-      <button onClick={handlePay} disabled={loading}>
-        {loading ? '처리 중...' : '결제하기'}
-      </button>
-    </div>
-  );
+    // 위젯 렌더링 완료 여부, 버튼 비활성화 처리
+    const [ready, setReady] = useState(false);
+    // 위젯은 SDK가 만들어 주는 외부 객체이므로 state로 관리하기보다 이렇게 참조를 저장해 둔다
+    const [widgets, setWidgets] = useState(null);
+
+    // 1단계 SDK 초기화와 위젯 생성
+    useEffect(() => {
+        async function fetchPaymentWidgets() {
+            try {
+                // ------  SDK 초기화 ------
+                // @docs https://docs.tosspayments.com/sdk/v2/js#토스페이먼츠-초기화
+                const tossPayments = await loadTossPayments(clientKey);
+
+                // 회원 결제
+                // @docs https://docs.tosspayments.com/sdk/v2/js#tosspaymentswidgets
+                const widgets = tossPayments.widgets({
+                    customerKey,
+                });
+                // 비회원 결제
+                // const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
+
+                // 생성된 위젯을 상태에 보관한다
+                setWidgets(widgets);
+            } catch (error) {
+                console.error("Error fetching payment widget:", error);
+            }
+        }
+
+        fetchPaymentWidgets();
+    }, [clientKey, customerKey]);
+
+    // 2단계 결제 금액 설정과 UI 렌더링
+    useEffect(() => {
+        async function renderPaymentWidgets() {
+            if (widgets == null) {
+                return;
+            }
+
+            // ------  주문서의 결제 금액 설정 ------
+            // TODO: 위젯의 결제금액을 결제하려는 금액으로 초기화하세요.
+            // TODO: renderPaymentMethods, renderAgreement, requestPayment 보다 반드시 선행되어야 합니다.
+            await widgets.setAmount(amount);
+
+            // ------  결제 UI 렌더링 ------
+            // @docs https://docs.tosspayments.com/sdk/v2/js#widgetsrenderpaymentmethods
+            await widgets.renderPaymentMethods({
+                selector: "#payment-method",
+                // 렌더링하고 싶은 결제 UI의 variantKey
+                // 결제 수단 및 스타일이 다른 멀티 UI를 직접 만들고 싶다면 계약이 필요하다.
+                // @docs https://docs.tosspayments.com/guides/v2/payment-widget/admin#새로운-결제-ui-추가하기
+                variantKey: "DEFAULT",
+            });
+
+            // ------  이용약관 UI 렌더링 ------
+            // @docs https://docs.tosspayments.com/reference/widget-sdk#renderagreement선택자-옵션
+            await widgets.renderAgreement({
+                selector: "#agreement",
+                variantKey: "AGREEMENT",
+            });
+
+            setReady(true);
+        }
+
+        renderPaymentWidgets();
+    }, [widgets]);
+
+    const updateAmount = async (amount) => {
+        setAmount(amount);
+        await widgets.setAmount(amount);
+    };
+
+    return (
+        <div className="wrapper">
+            <div className="box_section">
+                {/* 결제 UI */}
+                <div id="payment-method"/>
+                {/* 이용약관 UI */}
+                <div id="agreement"/>
+
+                {/* 결제하기 버튼 */}
+                <button
+                    className="button"
+                    style={{marginTop: "30px"}}
+                    disabled={!ready}
+                    // ------ '결제하기' 버튼 누르면 결제창 띄우기 ------
+                    // @docs https://docs.tosspayments.com/sdk/v2/js#widgetsrequestpayment
+                    onClick={async () => {
+                        try {
+                            // todo 서버 API 호출 /api/payments/create
+                            // 결제를 요청하기 전에 orderId, amount를 서버에 저장하세요.
+                            // 결제 과정에서 악의적으로 결제 금액이 바뀌는 것을 확인하는 용도입니다.
+                            await widgets.requestPayment({
+                                orderId: generateRandomString(),
+                                orderName: "토스 티셔츠 외 2건",
+                                successUrl: window.location.origin + "/success",
+                                failUrl: window.location.origin + "/fail",
+                                customerEmail: "customer123@gmail.com",
+                                customerName: "김토스",
+                                customerMobilePhone: "01012341234",
+                            });
+                        } catch (error) {
+                            // 에러 처리하기
+                            console.error(error);
+                        }
+                    }}
+                >
+                    결제하기
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function generateRandomString() {
+    return window.btoa(Math.random().toString()).slice(0, 20);
 }

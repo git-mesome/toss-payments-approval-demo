@@ -12,11 +12,11 @@ export TOSS_API_BASE=https://api.tosspayments.com
 ## 실행
 
 ```bash
-mvn spring-boot:run
+./gradlew bootRun
 ```
 
 ## 테스트
 
 ```bash
-mvn test
+./gradlew test
 ```
