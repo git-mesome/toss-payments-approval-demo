@@ -49,11 +49,20 @@ public class PaymentService {
 					PaymentApprovedData data = new PaymentApprovedData(reservationId, totalAmount);
 					return new PaymentConfirmResponse("SUCCESS", data, null);
 				} else {
-					// 실패: toss가 준 code/message를 메시지로 합쳐서 반환
+					// 실패 처리(요약)
+					// body: 토스가 준 Map 형태 응답 (code, message 등)
 					String tossCode = String.valueOf(body.getOrDefault("code", "TOSS_ERROR"));
-					String tossMsg = String.valueOf(body.getOrDefault("message", "토스 승인 실패"));
-					String message = tossCode + ": " + tossMsg;
-					return new PaymentConfirmResponse("FAILURE", null, message);
+					String tossMsg  = String.valueOf(body.getOrDefault("message", "토스 승인 실패"));
+
+					// 1) 원본은 로그에 남긴다 (디버깅/운영용)
+					// log.warn("Toss confirm failed. status={}, tossCode={}, tossMsg={}, body={}", status, tossCode, tossMsg, body);
+
+					// 2) 사용자용 메시지로 매핑한다 (직접 보여줄 문구)
+					String userMessage = mapToUserMessage(tossCode, tossMsg);
+
+					// 3) 프론트에 일관된 형식으로 반환
+					// 기존 PaymentConfirmResponse(String code, Object data, String message) 를 그대로 사용
+					return new PaymentConfirmResponse("FAILURE", null, userMessage);
 				}
 			})
 			// 네트워크/타임아웃/예외 발생 시 안전한 FAILURE 반환
@@ -81,4 +90,25 @@ public class PaymentService {
 		}
 		return "UNKNOWN";
 	}
+
+	private String mapToUserMessage(String tossCode, String tossMsg) {
+		// 중요한 몇 가지 토스 코드만 명시적으로 처리
+		switch (tossCode) {
+			case "ALREADY_PROCESSED_PAYMENT":
+				return "이미 결제가 처리되었습니다.";
+			case "INVALID_API_KEY":
+			case "UNAUTHORIZED_KEY":
+				return "시스템 오류가 발생했습니다. 서비스 관리자에게 문의하세요.";
+			case "PROVIDER_ERROR":
+				return "결제사에 문제가 발생했습니다. 잠시 후 다시 시도해주세요.";
+			case "REJECT_CARD_PAYMENT":
+				return "카드 결제가 거절되었습니다. 카드 정보를 확인하세요.";
+			case "FDS_ERROR":
+				return "거래가 제한되었습니다. 고객센터에 문의하세요.";
+			default:
+				// 기본 fallback: 친절한 일반 안내 (원문 노출 금지)
+				return "결제에 실패했습니다. 잠시 후 다시 시도하거나 고객센터에 문의하세요.";
+		}
+	}
+
 }
