@@ -13,12 +13,17 @@ const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
 // TODO : 실제 서비스에서는 로그인 사용자 식별자로 서버가 내려준 UUID 값을 customerKey에 설정합니다.
 const customerKey = generateRandomString();
 
+// 데모 전용 예약 정보(= orderId, amount)
+// 실제 서비스에선 화면 상태나 props로 받은 reservationId/totalPrice를 사용
+const DEMO_RESERVATION_ID = `demo-resv-${generateRandomString()}`; // 토스 orderId로 사용
+const DEMO_TOTAL_PRICE = 10000; // KRW
+
 export default function CheckoutPage() {
 
     // 결제 금액 정보
     const [amount, setAmount] = useState({
         currency: "KRW",
-        value: 50000,
+        value: DEMO_TOTAL_PRICE,
     });
 
     // 위젯 렌더링 완료 여부, 버튼 비활성화 처리
@@ -60,7 +65,6 @@ export default function CheckoutPage() {
             }
 
             // ------  주문서의 결제 금액 설정 ------
-            // TODO: 위젯의 결제금액을 결제하려는 금액으로 초기화하세요.
             // TODO: renderPaymentMethods, renderAgreement, requestPayment 보다 반드시 선행되어야 합니다.
             await widgets.setAmount(amount);
 
@@ -109,12 +113,9 @@ export default function CheckoutPage() {
                     // @docs https://docs.tosspayments.com/sdk/v2/js#widgetsrequestpayment
                     onClick={async () => {
                         try {
-                            // todo 서버 API 호출 /api/payments/create
-                            // 결제를 요청하기 전에 orderId, amount를 서버에 저장하세요.
-                            // 결제 과정에서 악의적으로 결제 금액이 바뀌는 것을 확인하는 용도입니다.
                             await widgets.requestPayment({
-                                orderId: generateRandomString(),
-                                orderName: "토스 티셔츠 외 2건",
+                                orderId: DEMO_RESERVATION_ID,
+                                orderName: "공연 좌석 티켓",
                                 successUrl: window.location.origin + "/success",
                                 failUrl: window.location.origin + "/fail",
                                 customerEmail: "customer123@gmail.com",
@@ -129,11 +130,22 @@ export default function CheckoutPage() {
                 >
                     결제하기
                 </button>
+
+                {/* 값 확인용 : 확인했으면 삭제 부탁드립니다 */}
+                <p style={{ marginTop: 12 }}>
+                    데모 예약 ID(orderId): {DEMO_RESERVATION_ID}
+                    <br />
+                    결제 금액: {amount.value.toLocaleString()} {amount.currency}
+                </p>
+
             </div>
         </div>
     );
 }
 
+
+// 브라우저에서 간단한 랜덤 문자열 생성(데모 전용)
+// 실제 서비스에서는 서버가 안전한 식별자를 발급
 function generateRandomString() {
     return window.btoa(Math.random().toString()).slice(0, 20);
 }

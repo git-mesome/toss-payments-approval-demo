@@ -28,7 +28,7 @@ public class PaymentConfirmController {
 	@PostMapping("/confirm")
 	public ResponseEntity<?> confirm(@RequestBody Map<String, Object> request) {
 		String paymentKey = (String)request.get("paymentKey");
-		String orderId = (String)request.get("orderId");
+		String orderId = (String)request.get("reservationId");
 		int amount = (int)request.get("amount");
 
 		System.out.printf("📌 [결제 승인 요청] paymentKey=%s, orderId=%s, amount=%d%n",
