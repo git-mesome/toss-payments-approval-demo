@@ -91,11 +91,6 @@ export default function CheckoutPage() {
         renderPaymentWidgets();
     }, [widgets]);
 
-    const updateAmount = async (amount) => {
-        setAmount(amount);
-        await widgets.setAmount(amount);
-    };
-
     return (
         <div className="wrapper">
             <div className="box_section">
@@ -114,6 +109,7 @@ export default function CheckoutPage() {
                     onClick={async () => {
                         try {
                             await widgets.requestPayment({
+                                // 필수 orderId, successUrl, failUrl 외 선택사항
                                 orderId: DEMO_RESERVATION_ID,
                                 orderName: "공연 좌석 티켓",
                                 successUrl: window.location.origin + "/success",
