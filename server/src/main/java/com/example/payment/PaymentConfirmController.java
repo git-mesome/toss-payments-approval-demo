@@ -29,6 +29,6 @@ public class PaymentConfirmController {
 	@PostMapping("/confirm")
 	public Mono<ResponseEntity<PaymentConfirmResponse>> confirm(@RequestBody PaymentConfirmRequest request) {
 		return paymentService.confirmPayment(request)
-			.map(response -> ResponseEntity.ok(response));
+			.map(ResponseEntity::ok);
 	}
 }
