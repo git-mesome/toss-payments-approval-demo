@@ -34,7 +34,7 @@ export default function SuccessPage() {
         // 3) 백엔드 서버로 결제 승인 요청
         async function confirmPayment() {
             try {
-                const res = await fetch(`${API_BASE}/api/payments/confirm`, {
+                const res = await fetch(`${API_BASE}/api/v1/payments/confirm`, {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
                     body: JSON.stringify({
